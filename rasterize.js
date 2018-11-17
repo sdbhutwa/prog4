@@ -18,13 +18,12 @@ var inputTriangles = []; // the triangle data as loaded from input files
 var numTriangleSets = 0; // how many triangle sets in input scene
 var inputEllipsoids = []; // the ellipsoid data as loaded from input files
 var numEllipsoids = 0; // how many ellipsoids in the input scene
-
 var vertexBuffers = []; // this contains vertex coordinate lists by set, in triples
 var normalBuffers = []; // this contains normal component lists by set, in triples
 var textureBuffers = [];
 var triSetSizes = []; // this contains the size of each triangle set
 var triangleBuffers = []; // lists of indices into vertexBuffers by set, in triples
-var images = []
+var images = [];
 var colorMapTextureBuffer = [];
 var UseSurfaceColor = false;
 
@@ -140,9 +139,9 @@ function handleKeyDown(event) {
             highlightModel(modelEnum.ELLIPSOID,(handleKeyDown.whichOn > 0) ? handleKeyDown.whichOn-1 : numEllipsoids-1);
             break;
 
-        case "KeyB":
-            UseSurfaceColor = !UseSurfaceColor;
-            break;
+        //case "KeyB":
+           // UseSurfaceColor = !UseSurfaceColor;
+            //break;
             
         // view change
         case "KeyA": // translate view left, rotate left with shift
@@ -232,6 +231,43 @@ function handleKeyDown(event) {
             else
                 translateModel(vec3.scale(temp,Up,-viewDelta));
             break;
+        case "KeyB":
+        		Blinn_Phong = !Blinn_Phong;
+        	break;
+        case "KeyN":
+        		handleKeyDown.modelOn.material.n = (handleKeyDown.modelOn.material.n + 1)%20;
+        		console.log(handleKeyDown.modelOn.material.n);
+        	break;
+        case "Numpad1":
+        		vec3.add(handleKeyDown.modelOn.material.ambient, handleKeyDown.modelOn.material.ambient, vec3.fromValues(0.1,0.1,0.1));
+        		if(handleKeyDown.modelOn.material.ambient[0] > 1.0)
+        			handleKeyDown.modelOn.material.ambient[0] = 0;
+        		if(handleKeyDown.modelOn.material.ambient[1] > 1.0)
+        			handleKeyDown.modelOn.material.ambient[1] = 0;
+        		if(handleKeyDown.modelOn.material.ambient[2] > 1.0)
+        			handleKeyDown.modelOn.material.ambient[2] = 0;
+        		console.log(handleKeyDown.modelOn.material.ambient);
+        	break;
+        case "Numpad2":        		 
+        		vec3.add(handleKeyDown.modelOn.material.diffuse, handleKeyDown.modelOn.material.diffuse, vec3.fromValues(0.1,0.1,0.1));
+        		if(handleKeyDown.modelOn.material.diffuse[0] > 1.0)
+        			handleKeyDown.modelOn.material.diffuse[0] = 0;
+        		if(handleKeyDown.modelOn.material.diffuse[1] > 1.0)
+        			handleKeyDown.modelOn.material.diffuse[1] = 0;
+        		if(handleKeyDown.modelOn.material.diffuse[2] > 1.0)
+        			handleKeyDown.modelOn.material.diffuse[2] = 0;
+        		console.log(handleKeyDown.modelOn.material.diffuse);
+        	break;
+         case "Numpad3":        		 
+        		vec3.add(handleKeyDown.modelOn.material.specular, handleKeyDown.modelOn.material.specular, vec3.fromValues(0.1,0.1,0.1));
+        		if(handleKeyDown.modelOn.material.specular[0] > 1.0)
+        			handleKeyDown.modelOn.material.specular[0] = 0;
+        		if(handleKeyDown.modelOn.material.specular[1] > 1.0)
+        			handleKeyDown.modelOn.material.specular[1] = 0;
+        		if(handleKeyDown.modelOn.material.specular[2] > 1.0)
+        			handleKeyDown.modelOn.material.specular[2] = 0;
+        		console.log(handleKeyDown.modelOn.material.specular);
+        	break;
         case "Backspace": // reset model transforms to default
             for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
                 vec3.set(inputTriangles[whichTriSet].translation,0,0,0);
@@ -304,16 +340,7 @@ function loadModels() {
             // process each triangle set to load webgl vertex and triangle buffers
             numTriangleSets = inputTriangles.length; // remember how many tri sets
             for (var whichSet=0; whichSet<numTriangleSets; whichSet++) { // for each tri set
-                // if (inputTriangles[whichSet].material.alpha < 1) {
-                //     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-                //     gl.enable(gl.BLEND);
-                //     gl.disable(gl.DEPTH_TEST);
-                // } else {
-                //     gl.disable(gl.BLEND);
-                //     gl.enable(gl.DEPTH_TEST);
-                //     gl.depthMask(true);
-                // }
-                // set up hilighting, modeling translation and rotation
+                
                 inputTriangles[whichSet].center = vec3.fromValues(0,0,0);  // center point of tri set
                 inputTriangles[whichSet].on = false; // not highlighted
                 inputTriangles[whichSet].translation = vec3.fromValues(0,0,0); // no translation
@@ -337,7 +364,6 @@ function loadModels() {
                     vec3.add(inputTriangles[whichSet].center,inputTriangles[whichSet].center,vtxToAdd); // add to ctr sum
                 } // end for vertices in set
                 vec3.scale(inputTriangles[whichSet].center,inputTriangles[whichSet].center,1/numVerts); // avg ctr sum
-
                 images.push(inputTriangles[whichSet].material.texture);
 
                 // send the vertex coords and normals to webGL
@@ -349,9 +375,7 @@ function loadModels() {
                 gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(inputTriangles[whichSet].glNormals),gl.STATIC_DRAW); // data in
                 textureBuffers[whichSet] = gl.createBuffer(); // init empty webgl set normal component buffer
                 gl.bindBuffer(gl.ARRAY_BUFFER,textureBuffers[whichSet]); // activate that buffer
-                //***************************************
                 gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(inputTriangles[whichSet].glTexture),gl.STATIC_DRAW); // data in
-                //***************************************
 
                 // set up the triangle index array, adjusting indices across sets
                 inputTriangles[whichSet].glTriangles = []; // flat index list for webgl
@@ -367,75 +391,7 @@ function loadModels() {
                 gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(inputTriangles[whichSet].glTriangles),gl.STATIC_DRAW); // data in
 
             } // end for each triangle set
-
-            inputEllipsoids = getJSONFile(INPUT_ELLIPSOIDS_URL,"ellipsoids"); // read in the ellipsoids
-
-            // inputEllipsoids = inputEllipsoids.sort(function(a, b) {
-            //     return b.alpha - a.alpha;
-            // });
-
-            if (inputEllipsoids == String.null)
-                throw "Unable to load ellipsoids file!";
-            else {
-
-                // init ellipsoid highlighting, translation and rotation; update bbox
-                var ellipsoid; // current ellipsoid
-                var ellipsoidModel; // current ellipsoid triangular model
-                var temp = vec3.create(); // an intermediate vec3
-                var minXYZ = vec3.create(), maxXYZ = vec3.create();  // min/max xyz from ellipsoid
-                numEllipsoids = inputEllipsoids.length; // remember how many ellipsoids
-                for (var whichEllipsoid=0; whichEllipsoid<numEllipsoids; whichEllipsoid++) {
-                                        // set up various stats and transforms for this ellipsoid
-                    ellipsoid = inputEllipsoids[whichEllipsoid];
-                    // if (ellipsoid.alpha < 1) {
-                    //     gl.enable(gl.BLEND);
-                    //     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-                    //     gl.disable(gl.DEPTH_TEST);
-                    //     gl.depthMask(false);
-                    // } else {
-                    //     console.log("There is one" + ellipsoid.alpha);
-                    //     gl.disable(gl.BLEND);
-                    //     gl.enable(gl.DEPTH_TEST);
-                    //     gl.depthMask(true);
-                    // }
-                    ellipsoid.on = false; // ellipsoids begin without highlight
-                    ellipsoid.translation = vec3.fromValues(0,0,0); // ellipsoids begin without translation
-                    ellipsoid.xAxis = vec3.fromValues(1,0,0); // ellipsoid X axis
-                    ellipsoid.yAxis = vec3.fromValues(0,1,0); // ellipsoid Y axis
-                    ellipsoid.center = vec3.fromValues(ellipsoid.x,ellipsoid.y,ellipsoid.z); // locate ellipsoid ctr
-                    vec3.set(minXYZ,ellipsoid.x-ellipsoid.a,ellipsoid.y-ellipsoid.b,ellipsoid.z-ellipsoid.c);
-                    vec3.set(maxXYZ,ellipsoid.x+ellipsoid.a,ellipsoid.y+ellipsoid.b,ellipsoid.z+ellipsoid.c);
-                    vec3.min(minCorner,minCorner,minXYZ); // update world bbox min corner
-                    vec3.max(maxCorner,maxCorner,maxXYZ); // update world bbox max corner
-
-                    // make the ellipsoid model
-                    ellipsoidModel = makeEllipsoid(ellipsoid,32);
-                    images.push(ellipsoid.texture);
-
-                    // send the ellipsoid vertex coords and normals to webGL
-                    vertexBuffers.push(gl.createBuffer()); // init empty webgl ellipsoid vertex coord buffer
-                    gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffers[vertexBuffers.length-1]); // activate that buffer
-                    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(ellipsoidModel.vertices),gl.STATIC_DRAW); // data in
-                    normalBuffers.push(gl.createBuffer()); // init empty webgl ellipsoid vertex normal buffer
-                    gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffers[normalBuffers.length-1]); // activate that buffer
-                    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(ellipsoidModel.normals),gl.STATIC_DRAW); // data in
-
-                    textureBuffers.push(gl.createBuffer()); // init empty webgl ellipsoid vertex texture buffer
-                    gl.bindBuffer(gl.ARRAY_BUFFER,textureBuffers[textureBuffers.length-1]); // activate that buffer
-                    //******************************************************
-                    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(ellipsoidModel.textures),gl.STATIC_DRAW); // data in
-                    //******************************************************
-
-                    triSetSizes.push(ellipsoidModel.triangles.length);
-
-                    // send the triangle indices to webGL
-                    triangleBuffers.push(gl.createBuffer()); // init empty triangle index buffer
-                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, triangleBuffers[triangleBuffers.length-1]); // activate that buffer
-                    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(ellipsoidModel.triangles),gl.STATIC_DRAW); // data in
-                } // end for each ellipsoid
-
-                viewDelta = vec3.length(vec3.subtract(temp,maxCorner,minCorner)) / 100; // set global
-            } // end if ellipsoid file loaded
+            viewDelta = vec3.length(vec3.subtract(temp,maxCorner,minCorner)) / 100; // set global
         } // end if triangle file loaded
     } // end try
 
