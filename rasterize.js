@@ -400,45 +400,6 @@ function loadModels() {
     } // end catch
 } // end load models
 
-// Source: https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial/Using_textures_in_WebGL
-function isPowerOf2(value) {
-    return (value & (value - 1)) == 0;
-}
-
-function handleLoadedTexture(texture) {
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    if (isPowerOf2(texture.image.width) && isPowerOf2(texture.image.height)) {
-        // Yes, it's a power of 2. Generate mips.
-        gl.generateMipmap(gl.TEXTURE_2D);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
-    } else {
-        // No, it's not a power of 2. Turn of mips and set
-        // wrapping to clamp to edge
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    }
-
-    gl.bindTexture(gl.TEXTURE_2D, null);
-}
-
-function initTexture() {
-    for(var im=0; im<images.length; im++){
-        var colorMapTexture = gl.createTexture();
-        colorMapTexture.image = new Image();
-        colorMapTexture.image.crossOrigin = "Anonymous";
-        colorMapTexture.image.onload = function () {
-            let index = images.findIndex(x => this.src.includes(x));
-            handleLoadedTexture(colorMapTextureBuffer[index]);
-        };
-        colorMapTexture.image.src = INPUT_URL + images[im];
-        colorMapTextureBuffer.push(colorMapTexture);
-    }
-}
-
 // setup the webGL shaders
 function setupShaders() {
     
@@ -603,6 +564,46 @@ function setupShaders() {
     } // end catch
 } // end setup shaders
 
+// Source: https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial/Using_textures_in_WebGL
+
+function isPowerOf2(value) {
+    return (value & (value - 1)) == 0;
+}
+
+function handleLoadedTexture(texture) {
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    if (isPowerOf2(texture.image.width) && isPowerOf2(texture.image.height)) {
+        // Yes, it's a power of 2. Generate mips.
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+    } else {
+        // No, it's not a power of 2. Turn of mips and set
+        // wrapping to clamp to edge
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    }
+
+    gl.bindTexture(gl.TEXTURE_2D, null);
+}
+
+function initTexture() {
+    for(var im=0; im<images.length; im++){
+        var colorMapTexture = gl.createTexture();
+        colorMapTexture.image = new Image();
+        colorMapTexture.image.crossOrigin = "Anonymous";
+        colorMapTexture.image.onload = function () {
+            let index = images.findIndex(x => this.src.includes(x));
+            handleLoadedTexture(colorMapTextureBuffer[index]);
+        };
+        colorMapTexture.image.src = INPUT_URL + images[im];
+        colorMapTextureBuffer.push(colorMapTexture);
+    }
+}
+
 // render the loaded model
 function renderModels() {
 
@@ -670,20 +671,6 @@ function renderModels() {
         models.push(currSet);
     }
 
-    // render each ellipsoid
-    let ellipsoid, instanceTransform = mat4.create(); // the current ellipsoid and material
-
-    for (let whichEllipsoid = 0; whichEllipsoid < numEllipsoids; whichEllipsoid++) {
-        ellipsoid = inputEllipsoids[whichEllipsoid];
-        // define model transform, premult with pvmMatrix, feed to vertex shader
-        makeModelTransform(ellipsoid);
-        let centre = mat4.multiply(vec4.create(), mMatrix, vec4.fromValues(ellipsoid.center[0], ellipsoid.center[1], ellipsoid.center[2], 1.0));
-        ellipsoid.depth = Math.abs(centre[2] - Eye[2]);
-        ellipsoid.whichTriSet = -1; // to identify it as ellipsoid
-        ellipsoid.whichEllipsoid = whichEllipsoid;
-        models.push(ellipsoid);
-    }
-
     models = models.sort(function (x, y) {
         return y.depth - x.depth;
     });
@@ -733,39 +720,6 @@ function renderModels() {
             gl.drawElements(gl.TRIANGLES,3*triSetSizes[whichTriSet],gl.UNSIGNED_SHORT,0); // render
 
         }// end for each triangle set
-
-        else{
-
-            let whichEllipsoid = models[i].whichEllipsoid;
-            ellipsoid = models[i];
-            // define model transform, premult with pvmMatrix, feed to vertex shader
-            makeModelTransform(ellipsoid);
-            pvmMatrix = mat4.multiply(pvmMatrix,pvMatrix,mMatrix); // premultiply with pv matrix
-            gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in model matrix
-            gl.uniformMatrix4fv(pvmMatrixULoc, false, pvmMatrix); // pass in project view model matrix
-
-            // reflectivity: feed to the fragment shader
-            gl.uniform3fv(ambientULoc,ellipsoid.ambient); // pass in the ambient reflectivity
-            gl.uniform3fv(diffuseULoc,ellipsoid.diffuse); // pass in the diffuse reflectivity
-            gl.uniform3fv(specularULoc,ellipsoid.specular); // pass in the specular reflectivity
-            gl.uniform1f(shininessULoc,ellipsoid.n); // pass in the specular exponent
-            gl.uniform1f(alphaULoc,ellipsoid.alpha); // pass in the alpha
-
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, colorMapTextureBuffer[numTriangleSets+whichEllipsoid]);
-            gl.uniform1i(colorMapSamplerUniform, 0);
-
-            gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffers[numTriangleSets+whichEllipsoid]); // activate vertex buffer
-            gl.vertexAttribPointer(vPosAttribLoc,3,gl.FLOAT,false,0,0); // feed vertex buffer to shader
-            gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffers[numTriangleSets+whichEllipsoid]); // activate normal buffer
-            gl.vertexAttribPointer(vNormAttribLoc,3,gl.FLOAT,false,0,0); // feed normal buffer to shader
-            gl.bindBuffer(gl.ARRAY_BUFFER,textureBuffers[numTriangleSets+whichEllipsoid]); // activate
-            gl.vertexAttribPointer(textureCoordAttribute,2,gl.FLOAT,false,0,0); // feed
-
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,triangleBuffers[numTriangleSets+whichEllipsoid]); // activate tri buffer
-            // draw a transformed instance of the ellipsoid
-            gl.drawElements(gl.TRIANGLES,triSetSizes[numTriangleSets+whichEllipsoid],gl.UNSIGNED_SHORT,0); // render
-        } // end for each ellipsoid
     }
 
 } // end render model
